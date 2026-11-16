@@ -1,76 +1,72 @@
 <?php
-require_once __DIR__ . '/inc/helpers.php';
-$site = setting('site_name', 'mxyA');
-$notice = setting('notice', '');
+require_once __DIR__ . '/inc/layout.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrf_check();
+    $id = (int)($_POST['id'] ?? 0);
+    $action = $_POST['action'] ?? '';
+    if ($action === 'approve') {
+        db()->prepare("UPDATE sites SET status='approved', reviewed_at=NOW(), reject_reason=NULL WHERE id=?")->execute([$id]);
+        audit('approve', 'site:' . $id);
+    } elseif ($action === 'reject') {
+        $reason = trim($_POST['reason'] ?? '');
+        db()->prepare("UPDATE sites SET status='rejected', reviewed_at=NOW(), reject_reason=? WHERE id=?")->execute([$reason, $id]);
+        audit('reject', 'site:' . $id, $reason);
+    }
+    redirect('/admin/index.php');
+}
+
+admin_header('审核');
+$rows = db()->query("SELECT * FROM sites WHERE status='pending' ORDER BY id ASC")->fetchAll();
 ?>
-<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title><?= h($site) ?></title>
-    <script>
-    (function () {
-        var t = localStorage.getItem("theme") || "light";
-        if (["light", "dark", "warm"].indexOf(t) === -1) t = "light";
-        document.documentElement.setAttribute("data-theme", t);
-    })();
-    </script>
-    <link rel="stylesheet" href="/assets/style.css?v=20261116f">
-</head>
-<body>
-    <div class="topbar">
-        <span class="brand"><?= h($site) ?></span>
-        <a href="/index.php">首页</a>
-        <a href="/apply.php">申请</a>
-        <a href="/query.php">查询</a>
-        <a href="/footers.php">页脚</a>
-        <a href="https://qm.qq.com/q/IcCR2VZQUW" target="_blank" rel="noopener">官群</a>
-        <a href="/admin/login.php">管理</a>
-        <button type="button" class="theme-toggle" id="themeToggle">浅色</button>
-    </div>
-    <div class="wrap">
-        <div class="hero">
-            <h1><?= h($site) ?></h1>
-        </div>
-
-        <div class="card">
-            <h2>查询标识</h2>
-            <form method="get" action="/query.php" class="form-row">
-                <div class="field">
-                    <input name="q" placeholder=" " required autocomplete="off">
-                    <label>编号或网址</label>
-                </div>
-                <div class="actions">
-                    <button>查询</button>
-                </div>
-            </form>
-        </div>
-
-        <div class="card">
-            <h2>申请标识</h2>
-            <p class="muted">填写邮箱接收验证码，验证后提交站点信息，等待管理员审核。</p>
-            <div class="actions">
-                <a href="/apply.php">去申请</a>
-            </div>
-        </div>
-
-        <div class="footer"><?= h($site) ?></div>
-    </div>
-
-    <?php if ($notice): ?>
-    <div class="modal-mask notice">
-        <div class="modal" role="dialog" aria-modal="true">
-            <h2>公告</h2>
-            <p><?= nl2br(h($notice)) ?></p>
-            <div class="actions">
-                <button type="button" data-close>知道了</button>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <script src="/assets/theme.js?v=20261116f"></script>
-    <script src="/assets/app.js?v=20261116f"></script>
-</body>
-</html>
+<h1>待审核</h1>
+<div class="card mobile-cards">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>名称</th>
+                <th>网址</th>
+                <th>邮箱</th>
+                <th>编号</th>
+                <th>时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($rows as $r): ?>
+            <tr>
+                <td data-label="ID"><?= (int)$r['id'] ?></td>
+                <td data-label="名称"><?= h($r['name']) ?></td>
+                <td data-label="网址"><?= h($r['url']) ?></td>
+                <td data-label="邮箱"><?= h($r['email']) ?></td>
+                <td data-label="编号"><?= h($r['code']) ?></td>
+                <td data-label="时间"><?= h($r['created_at']) ?></td>
+                <td data-label="操作">
+                    <div class="actions">
+                        <form method="post">
+                            <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                            <input type="hidden" name="action" value="approve">
+                            <button>通过</button>
+                        </form>
+                        <form method="post">
+                            <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                            <input type="hidden" name="action" value="reject">
+                            <input name="reason" placeholder="理由" style="width:120px">
+                            <button>拒绝</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            <?php if (!$rows): ?>
+            <tr>
+                <td colspan="7">暂无待审核记录</td>
+            </tr>
+            <?php endif; ?>
+        </tbody>
+    </table>
+</div>
+<?php admin_footer(); ?>
