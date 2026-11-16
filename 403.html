@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>403 禁止访问</title>
+    <script>
+    (function () {
+        var t = localStorage.getItem("theme") || "light";
+        if (["light", "dark", "warm"].indexOf(t) === -1) t = "light";
+        document.documentElement.setAttribute("data-theme", t);
+    })();
+    </script>
+    <link rel="stylesheet" href="/assets/style.css?v=20261116f">
+</head>
+<body>
+    <div class="topbar">
+        <span class="brand">mxyA</span>
+        <a href="/index.php">首页</a>
+        <button type="button" class="theme-toggle" id="themeToggle">浅色</button>
+    </div>
+    <div class="wrap">
+        <h1>403</h1>
+        <div class="card">
+            <p>你没有权限访问该页面。</p>
+        </div>
+    </div>
+    <script src="/assets/theme.js"></script>
+</body>
+</html>
